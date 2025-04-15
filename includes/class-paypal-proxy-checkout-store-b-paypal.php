@@ -120,18 +120,31 @@ class PayPal_Proxy_Checkout_Store_B_PayPal {
         $total_value = 0;
         
         foreach ($order_data['items'] as $item) {
-            $items[] = array(
-                'name' => $item['name'],
-                'unit_amount' => array(
-                    'currency_code' => $order_data['currency'],
-                    'value' => number_format($item['price'], 2, '.', ''),
-                ),
-                'quantity' => $item['quantity'],
-                'sku' => $item['store_b_product_id'],
-            );
-            
-            $total_value += $item['price'] * $item['quantity'];
+            // Use generic names for products instead of exposing actual names
+    $product_name = "Product";
+    
+    // If Store B product ID exists, try to get the actual product name
+    if (!empty($item['store_b_product_id'])) {
+        $product = wc_get_product($item['store_b_product_id']);
+        if ($product) {
+            $product_name = $product->get_name();
+        } else {
+            $product_name = "Product #" . $item['store_b_product_id'];
         }
+    }
+    
+    $items[] = array(
+        'name' => $product_name,
+        'unit_amount' => array(
+            'currency_code' => $order_data['currency'],
+            'value' => number_format($item['price'], 2, '.', ''),
+        ),
+        'quantity' => $item['quantity'],
+        'sku' => $item['store_b_product_id'],
+    );
+    
+    $total_value += $item['price'] * $item['quantity'];
+}
         
         // Create the purchase unit
         $purchase_unit = array(
@@ -166,18 +179,35 @@ class PayPal_Proxy_Checkout_Store_B_PayPal {
             );
         }
         
-        // Prepare the full PayPal order data
-        $paypal_order = array(
-            'intent' => 'CAPTURE',
-            'purchase_units' => array($purchase_unit),
-            'application_context' => array(
-                'return_url' => $order_data['return_url'],
-                'cancel_url' => $order_data['cancel_url'],
-                'brand_name' => get_bloginfo('name'),
-                'user_action' => 'PAY_NOW',
-                'shipping_preference' => 'SET_PROVIDED_ADDRESS',
-            ),
-        );
+        // Store original return URLs but don't send them to PayPal
+    $store_a_return_url = $order_data['return_url'];
+    $store_a_cancel_url = $order_data['cancel_url'];
+    
+    // Create proxy return URLs
+    $proxy_return_url = add_query_arg(array(
+        'store_a_id' => $order_data['store_a_id'],
+        'store_a_order_id' => $order_data['store_a_order_id'],
+        'store_a_return_url' => urlencode($store_a_return_url)
+    ), home_url('/wc-api/ppca_return'));
+    
+    $proxy_cancel_url = add_query_arg(array(
+        'store_a_id' => $order_data['store_a_id'],
+        'store_a_order_id' => $order_data['store_a_order_id'],
+        'store_a_cancel_url' => urlencode($store_a_cancel_url)
+    ), home_url('/wc-api/ppca_cancel'));
+    
+    // Prepare the full PayPal order data
+    $paypal_order = array(
+        'intent' => 'CAPTURE',
+        'purchase_units' => array($purchase_unit),
+        'application_context' => array(
+            'return_url' => $proxy_return_url,
+            'cancel_url' => $proxy_cancel_url,
+            'brand_name' => get_bloginfo('name'),
+            'user_action' => 'PAY_NOW',
+            'shipping_preference' => 'SET_PROVIDED_ADDRESS',
+        ),
+    );
         
         // Add payer info if available
         if (isset($order_data['customer']) && !empty($order_data['customer']['email'])) {

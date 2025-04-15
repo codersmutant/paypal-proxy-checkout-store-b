@@ -60,8 +60,96 @@ class PayPal_Proxy_Checkout_Store_B_API {
             'callback' => array($this, 'get_button_js'),
             'permission_callback' => '__return_true',
         ));
+		
+		//endpoints for PayPal return and cancel
+		add_action('woocommerce_api_ppca_return', array($this, 'handle_paypal_return'));
+    add_action('woocommerce_api_ppca_cancel', array($this, 'handle_paypal_cancel'));
     }
 
+	
+	
+public function handle_paypal_return() {
+    // Get parameters
+    $store_a_id = isset($_GET['store_a_id']) ? sanitize_text_field($_GET['store_a_id']) : '';
+    $store_a_order_id = isset($_GET['store_a_order_id']) ? sanitize_text_field($_GET['store_a_order_id']) : '';
+    $store_a_return_url = isset($_GET['store_a_return_url']) ? esc_url_raw(urldecode($_GET['store_a_return_url'])) : '';
+    $paypal_order_id = isset($_GET['token']) ? sanitize_text_field($_GET['token']) : '';
+    
+    if (empty($store_a_id) || empty($store_a_order_id) || empty($store_a_return_url)) {
+        wp_die(__('Invalid request parameters.', 'paypal-proxy-checkout-store-b'));
+    }
+    
+    // Generate authentication token for Store A
+    $auth_token = PayPal_Proxy_Checkout_Store_B_Security::generate_store_a_auth($store_a_id);
+    
+    // Add PayPal order ID to return URL
+    $redirect_url = add_query_arg(array('paypal_order_id' => $paypal_order_id), $store_a_return_url);
+    
+    // Notify Store A of success
+    $this->notify_store_a_of_success($store_a_id, $store_a_order_id, $paypal_order_id);
+    
+    // Redirect to Store A
+    wp_redirect($redirect_url);
+    exit;
+}
+
+public function handle_paypal_cancel() {
+    // Get parameters
+    $store_a_id = isset($_GET['store_a_id']) ? sanitize_text_field($_GET['store_a_id']) : '';
+    $store_a_order_id = isset($_GET['store_a_order_id']) ? sanitize_text_field($_GET['store_a_order_id']) : '';
+    $store_a_cancel_url = isset($_GET['store_a_cancel_url']) ? esc_url_raw(urldecode($_GET['store_a_cancel_url'])) : '';
+    
+    if (empty($store_a_id) || empty($store_a_cancel_url)) {
+        wp_die(__('Invalid request parameters.', 'paypal-proxy-checkout-store-b'));
+    }
+    
+    // Redirect to Store A
+    wp_redirect($store_a_cancel_url);
+    exit;
+}
+
+private function notify_store_a_of_success($store_a_id, $store_a_order_id, $paypal_order_id) {
+    // Get Store A URL
+    $settings = PayPal_Proxy_Checkout_Store_B::get_settings();
+    $allowed_stores = $settings['allowed_store_a'];
+    
+    $store_a_url = '';
+    foreach ($allowed_stores as $store) {
+        if ($store['id'] === $store_a_id) {
+            $store_a_url = $store['url'];
+            break;
+        }
+    }
+    
+    if (empty($store_a_url)) {
+        return false;
+    }
+    
+    // Generate authentication token
+    $auth_token = PayPal_Proxy_Checkout_Store_B_Security::generate_store_a_auth($store_a_id);
+    
+    // Send notification to Store A
+    $response = wp_remote_post($store_a_url . '/wp-json/paypal-proxy/v1/payment-received', array(
+        'method' => 'POST',
+        'timeout' => 45,
+        'redirection' => 5,
+        'httpversion' => '1.1',
+        'headers' => array(
+            'Content-Type' => 'application/json',
+            'X-Paypal-Proxy-Auth' => $auth_token,
+        ),
+        'body' => json_encode(array(
+            'store_a_order_id' => $store_a_order_id,
+            'paypal_order_id' => $paypal_order_id,
+            'status' => 'success'
+        )),
+    ));
+    
+    return !is_wp_error($response);
+}
+	
+	
+	
     /**
      * Verify that the request is coming from an authorized Store A.
      *
