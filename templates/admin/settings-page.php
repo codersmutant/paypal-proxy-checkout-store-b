@@ -97,18 +97,19 @@ $settings = PayPal_Proxy_Checkout_Store_B::get_settings();
                     if (!empty($allowed_stores)) {
                         foreach ($allowed_stores as $index => $store) {
                             ?>
-                            <tr>
+                            <tr class="ppcb-store-row">
                                 <td>
-                                    <input type="text" name="store_label" value="<?php echo esc_attr($store['label']); ?>" class="ppcb-store-label">
+                                    <input type="text" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][<?php echo $index; ?>][label]" value="<?php echo esc_attr($store['label']); ?>" class="ppcb-store-label">
                                 </td>
                                 <td>
-                                    <input type="text" name="store_id" value="<?php echo esc_attr($store['id']); ?>" class="ppcb-store-id">
+                                    <input type="text" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][<?php echo $index; ?>][id]" value="<?php echo esc_attr($store['id']); ?>" class="ppcb-store-id">
                                 </td>
                                 <td>
-                                    <input type="url" name="store_url" value="<?php echo esc_attr($store['url']); ?>" class="ppcb-store-url">
+                                    <input type="url" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][<?php echo $index; ?>][url]" value="<?php echo esc_attr($store['url']); ?>" class="ppcb-store-url">
                                 </td>
                                 <td>
-                                    <input type="text" name="store_token_key" value="<?php echo esc_attr($store['token_key']); ?>" class="ppcb-store-token">
+                                    <input type="text" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][<?php echo $index; ?>][token_key]" value="<?php echo esc_attr($store['token_key']); ?>" class="ppcb-store-token">
+                                    <button type="button" class="button button-small ppcb-generate-token"><?php echo esc_html__('Generate', 'paypal-proxy-checkout-store-b'); ?></button>
                                 </td>
                                 <td>
                                     <button type="button" class="button button-secondary ppcb-remove-store"><?php echo esc_html__('Remove', 'paypal-proxy-checkout-store-b'); ?></button>
@@ -131,29 +132,26 @@ $settings = PayPal_Proxy_Checkout_Store_B::get_settings();
                 </tfoot>
             </table>
             
-            <div id="ppcb-store-template" class="hidden">
-                <tr>
+            <script type="text/template" id="ppcb-store-template">
+                <tr class="ppcb-store-row">
                     <td>
-                        <input type="text" name="store_label" value="" placeholder="<?php echo esc_attr__('Store Name', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-label">
+                        <input type="text" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][{{index}}][label]" value="" placeholder="<?php echo esc_attr__('Store Name', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-label">
                     </td>
                     <td>
-                        <input type="text" name="store_id" value="" placeholder="<?php echo esc_attr__('Unique ID', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-id">
+                        <input type="text" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][{{index}}][id]" value="" placeholder="<?php echo esc_attr__('Unique ID', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-id">
                     </td>
                     <td>
-                        <input type="url" name="store_url" value="" placeholder="<?php echo esc_attr__('https://example.com', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-url">
+                        <input type="url" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][{{index}}][url]" value="" placeholder="<?php echo esc_attr__('https://example.com', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-url">
                     </td>
                     <td>
-                        <input type="text" name="store_token_key" value="" placeholder="<?php echo esc_attr__('Shared Secret Key', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-token">
+                        <input type="text" name="paypal_proxy_checkout_store_b_settings[allowed_store_a][{{index}}][token_key]" value="" placeholder="<?php echo esc_attr__('Shared Secret Key', 'paypal-proxy-checkout-store-b'); ?>" class="ppcb-store-token">
                         <button type="button" class="button button-small ppcb-generate-token"><?php echo esc_html__('Generate', 'paypal-proxy-checkout-store-b'); ?></button>
                     </td>
                     <td>
                         <button type="button" class="button button-secondary ppcb-remove-store"><?php echo esc_html__('Remove', 'paypal-proxy-checkout-store-b'); ?></button>
                     </td>
                 </tr>
-            </div>
-            
-            <!-- Hidden input to store the store data -->
-            <input type="hidden" id="ppcb-store-data" name="paypal_proxy_checkout_store_b_settings[allowed_store_a]" value="<?php echo esc_attr(json_encode($allowed_stores)); ?>">
+            </script>
         </div>
         
         <div class="ppcb-settings-section">
@@ -190,6 +188,9 @@ $settings = PayPal_Proxy_Checkout_Store_B::get_settings();
 
 <script>
 jQuery(document).ready(function($) {
+    // Counter for new store rows
+    var storeCounter = <?php echo !empty($allowed_stores) ? count($allowed_stores) : 0; ?>;
+    
     // Test PayPal credentials
     $('#ppcb-test-credentials').on('click', function(e) {
         e.preventDefault();
@@ -234,59 +235,34 @@ jQuery(document).ready(function($) {
     
     // Add Store A
     $('#ppcb-add-store').on('click', function() {
-        var template = $('#ppcb-store-template').html();
+        // Hide the "no stores" message
         $('#ppcb-store-a-table tbody .ppcb-no-stores').addClass('hidden');
-        $('#ppcb-store-a-table tbody').append(template);
-        updateStoreData();
+        
+        // Get the template HTML content and replace the placeholder index
+        var templateHTML = $('#ppcb-store-template').html().replace(/\{\{index\}\}/g, storeCounter);
+        
+        // Append the new row to the table body
+        $('#ppcb-store-a-table tbody').append(templateHTML);
+        
+        // Increment the counter for next row
+        storeCounter++;
     });
     
     // Remove Store A
     $(document).on('click', '.ppcb-remove-store', function() {
         $(this).closest('tr').remove();
-        if ($('#ppcb-store-a-table tbody tr').length === 1) {
+        
+        // Show the "no stores" message if there are no stores
+        if ($('#ppcb-store-a-table tbody tr').not('.ppcb-no-stores').length === 0) {
             $('#ppcb-store-a-table tbody .ppcb-no-stores').removeClass('hidden');
         }
-        updateStoreData();
     });
     
     // Generate token
     $(document).on('click', '.ppcb-generate-token', function() {
         var tokenField = $(this).siblings('.ppcb-store-token');
         tokenField.val(generateRandomToken(32));
-        updateStoreData();
     });
-    
-    // Update store data when values change
-    $(document).on('change', '.ppcb-store-label, .ppcb-store-id, .ppcb-store-url, .ppcb-store-token', function() {
-        updateStoreData();
-    });
-    
-    // Update the hidden input with the current store data
-    function updateStoreData() {
-        var stores = [];
-        $('#ppcb-store-a-table tbody tr').each(function() {
-            var $row = $(this);
-            if ($row.hasClass('ppcb-no-stores')) {
-                return; // Skip the "no stores" row
-            }
-            
-            var label = $row.find('.ppcb-store-label').val();
-            var id = $row.find('.ppcb-store-id').val();
-            var url = $row.find('.ppcb-store-url').val();
-            var tokenKey = $row.find('.ppcb-store-token').val();
-            
-            if (id && url && tokenKey) {
-                stores.push({
-                    label: label || '',
-                    id: id,
-                    url: url,
-                    token_key: tokenKey
-                });
-            }
-        });
-        
-        $('#ppcb-store-data').val(JSON.stringify(stores));
-    }
     
     // Generate a random token
     function generateRandomToken(length) {
