@@ -49,7 +49,8 @@ defined('ABSPATH') || exit;
                 </td>
             </tr>
         </table>
-        
+
+        <!--
         <h2><?php esc_html_e('Security Settings', 'wc-paypal-proxy-handler'); ?></h2>
         <p><?php esc_html_e('Configure which domains are allowed to send requests to this proxy and their API keys.', 'wc-paypal-proxy-handler'); ?></p>
         
@@ -64,6 +65,7 @@ defined('ABSPATH') || exit;
                 </td>
             </tr>
         </table>
+    -->
         
         <h3><?php esc_html_e('API Keys', 'wc-paypal-proxy-handler'); ?></h3>
         <p><?php esc_html_e('Manage API keys for each domain that will connect to this proxy.', 'wc-paypal-proxy-handler'); ?></p>
