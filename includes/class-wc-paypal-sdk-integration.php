@@ -149,22 +149,34 @@ if (!empty($products)) {
     }
     
     if (!empty($line_items)) {
-        $order_data['purchase_units'][0]['items'] = $line_items;
-        
-        // Ensure totals match
-        $formatted_total = number_format($item_total, 2, '.', '');
-        $order_data['purchase_units'][0]['amount']['breakdown'] = array(
-            'item_total' => array(
-                'currency_code' => $currency,
-                'value' => $formatted_total,
-            ),
+    $order_data['purchase_units'][0]['items'] = $line_items;
+    
+    // Format item total with 2 decimal places
+    $formatted_item_total = number_format($item_total, 2, '.', '');
+    
+    // Calculate shipping amount (total amount - item total)
+    $shipping_amount = $amount - $item_total;
+    $formatted_shipping = number_format(max(0, $shipping_amount), 2, '.', '');
+    
+    // Add breakdown with both item_total and shipping
+    $order_data['purchase_units'][0]['amount']['breakdown'] = array(
+        'item_total' => array(
+            'currency_code' => $currency,
+            'value' => $formatted_item_total,
+        ),
+    );
+    
+    // Add shipping to breakdown if there is any
+    if ($shipping_amount > 0) {
+        $order_data['purchase_units'][0]['amount']['breakdown']['shipping'] = array(
+            'currency_code' => $currency,
+            'value' => $formatted_shipping,
         );
-        
-        // Also update the main amount to match
-        $order_data['purchase_units'][0]['amount']['value'] = $formatted_total;
-        
-        $this->log('Total calculated from line items: ' . $formatted_total);
     }
+    
+    // Do NOT update the main amount - keep the original total
+    $this->log('Item total: ' . $formatted_item_total . ', Shipping: ' . $formatted_shipping . ', Full amount: ' . $amount);
+}
 }
     
     $request->body = $order_data;
